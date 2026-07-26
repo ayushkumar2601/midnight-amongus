@@ -1,0 +1,14 @@
+# Midnight ZK proof server (Shadow Protocol spec 4.3).
+# Run:  docker compose -f proof-server-local.yml up -d
+# Test: curl -s http://127.0.0.1:6300
+#
+# VERIFY-AGAINST-DOCS: pin the image tag to the one the current
+# midnightntwrk/example-bboard repo uses before the demo.
+services:
+  proof-server:
+    image: midnightnetwork/proof-server:latest
+    container_name: shadow-protocol-proof-server
+    ports:
+      - "6300:6300"
+    command: ["midnight-proof-server", "--network", "testnet"]
+    restart: unless-stopped

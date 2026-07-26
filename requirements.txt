@@ -1,0 +1,9 @@
+# Python 3.12+ (incl. 3.14): pygame-ce is a drop-in pygame replacement with
+# prebuilt wheels for new Python versions; upstream pygame has none for 3.14.
+pygame-ce>=2.5 ; python_version >= "3.12"
+pygame>=2.5 ; python_version < "3.12"
+pytmx>=3.31
+requests>=2.31
+# asyncore was removed from the stdlib in Python 3.12; the pyasyncore package
+# restores it under the original module name (server.py's `import asyncore`).
+pyasyncore ; python_version >= "3.12"

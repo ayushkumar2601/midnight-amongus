@@ -1,0 +1,36 @@
+{
+  "name": "midnight-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shadow Protocol Midnight bridge: seats, roles, salts, ZK proofs, tx queue, audit dashboard",
+  "scripts": {
+    "compact": "compact compile contract/src/shadow_ledger.compact contract/src/managed",
+    "build": "tsc && tsc -p tsconfig.web.json",
+    "build:web": "tsc -p tsconfig.web.json",
+    "build:chain": "npm run compact && npm run build",
+    "dev": "npm run build && node dist/index.js",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "4.1.1",
+    "@midnight-ntwrk/midnight-js-utils": "4.1.1",
+    "@midnight-ntwrk/wallet-sdk": "1.0.0",
+    "express": "^4.21.2",
+    "zod": "^3.24.1",
+    "pino": "^9.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.17.9"
+  }
+}

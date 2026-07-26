@@ -1,0 +1,221 @@
+// ShadowLedger — Shadow Protocol on-chain match record (spec §7).
+//
+// VERIFY-AGAINST-DOCS before compiling:
+//   * pragma version -> your installed `compact compile --version`
+//   * ledger ADT method names / constructor form / disclose() placement
+//     against docs.midnight.network/develop/reference/compact/lang-ref and
+//     the current midnightntwrk/example-bboard contract.
+// The checks and effects below are BINDING; identifiers may need aligning.
+//
+// Phases:  0 SETUP  1 LIVE  2 MEETING  3 OVER
+// Roles:   1 AGENT  2 SABOTEUR          (0 reserved = unknown)
+// Winner:  0 none   1 agents  2 saboteur
+// Seats:   0..4 (5 fixed)
+
+pragma language_version >= 0.16;
+
+import CompactStandardLibrary;
+
+// ---------------------------- public ledger state ----------------------------
+export ledger gamePhase: Uint<8>;
+export ledger meetingRound: Counter;
+export ledger gameSeed: Bytes<32>;
+export ledger adminPk: Bytes<32>;                    // deployer credential
+export ledger roleCommitments: Map<Uint<8>, Bytes<32>>;
+export ledger alive: Map<Uint<8>, Boolean>;
+export ledger killCount: Counter;                    // public body count
+export ledger voteNullifiers: Set<Bytes<32>>;
+export ledger voteTally: Map<Uint<8>, Uint<8>>;
+export ledger ejectedRole: Map<Uint<8>, Uint<8>>;    // seat -> revealed role
+export ledger revealedRole: Map<Uint<8>, Uint<8>>;   // endgame audit reveals
+export ledger winner: Uint<8>;
+
+// --------------------------------- witnesses ---------------------------------
+// Private inputs supplied by the bridge driver. Attacker-controlled by
+// definition: every circuit re-derives the commitment from the witness and
+// compares against ledger state. A witness that doesn't open the on-chain
+// commitment must make the proof fail.
+witness killerCreds(): [Uint<8>, Uint<8>, Bytes<32>];   // [role, seat, salt]
+witness voterCreds():  [Uint<8>, Uint<8>, Bytes<32>];   // [role, seat, salt]
+
+// -------------------------------- constructor --------------------------------
+constructor() {
+  gamePhase = 0;
+  winner = 0;
+  // VERIFY-AGAINST-DOCS: mechanism for capturing the deployer credential
+  // (ownPublicKey() in current std-lib).
+  adminPk = ownPublicKey().bytes;
+}
+
+// ----------------------------- helper circuits -------------------------------
+circuit requireAdmin(): [] {
+  assert(ownPublicKey().bytes == adminPk, "admin only");
+}
+
+circuit openCommitment(role: Uint<8>, seat: Uint<8>, salt: Bytes<32>): Bytes<32> {
+  // Commitment binds role + seat + gameSeed so it cannot be replayed for
+  // another seat or another match (spec §6.3).
+  return persistentCommit<[Field, Field, Bytes<32>]>(
+    [role as Field, seat as Field, gameSeed], salt);
+}
+
+export circuit pureOpenCommitment(role: Uint<8>, seat: Uint<8>, seed: Bytes<32>, salt: Bytes<32>): Bytes<32> {
+  return persistentCommit<[Field, Field, Bytes<32>]>(
+    [role as Field, seat as Field, seed], salt);
+}
+
+circuit checkValidAliveSeatCommitment(role: Uint<8>, seat: Uint<8>, salt: Bytes<32>): [] {
+  const comm = openCommitment(role, seat, salt);
+  const c0 = roleCommitments.lookup(0);
+  const c1 = roleCommitments.lookup(1);
+  const c2 = roleCommitments.lookup(2);
+  const c3 = roleCommitments.lookup(3);
+  const c4 = roleCommitments.lookup(4);
+  const a0 = alive.lookup(0);
+  const a1 = alive.lookup(1);
+  const a2 = alive.lookup(2);
+  const a3 = alive.lookup(3);
+  const a4 = alive.lookup(4);
+  assert(
+    (seat == 0 && comm == c0 && a0) ||
+    (seat == 1 && comm == c1 && a1) ||
+    (seat == 2 && comm == c2 && a2) ||
+    (seat == 3 && comm == c3 && a3) ||
+    (seat == 4 && comm == c4 && a4),
+    "seat commitment mismatch or seat dead"
+  );
+}
+
+// ------------------------------- 7.3.1 initGame ------------------------------
+// Admin, once. Seed + commitments reach the chain BEFORE any role reaches the
+// game server — the anti-rig ordering.
+export circuit initGame(seed: Bytes<32>,
+                        c0: Bytes<32>, c1: Bytes<32>, c2: Bytes<32>,
+                        c3: Bytes<32>, c4: Bytes<32>): [] {
+  requireAdmin();
+  assert(gamePhase == 0, "initGame callable once, in SETUP");
+  gameSeed = disclose(seed);
+  roleCommitments.insert(0, disclose(c0));
+  roleCommitments.insert(1, disclose(c1));
+  roleCommitments.insert(2, disclose(c2));
+  roleCommitments.insert(3, disclose(c3));
+  roleCommitments.insert(4, disclose(c4));
+  for (const i of 0..5) {
+    alive.insert(i as Uint<8>, true);
+    voteTally.insert(i as Uint<8>, 0);
+  }
+  gamePhase = 1;   // LIVE
+}
+
+// ------------------------------ 7.3.2 recordKill -----------------------------
+// ZK showpiece: proves the prover holds a commitment opening to SABOTEUR
+// without disclosing the killer's seat. Only the victim seat becomes public.
+export circuit recordKill(victim: Uint<8>): [] {
+  const v = disclose(victim);
+  const creds = killerCreds();
+  const role = creds[0];
+  const seat = creds[1];
+  const salt = creds[2];
+  assert(gamePhase == 1, "kills only while LIVE");
+  assert(role == 2, "killer must be SABOTEUR");
+  checkValidAliveSeatCommitment(role, seat, salt);
+  assert(v < 5, "bad victim seat");
+  assert(alive.lookup(v), "victim already dead");
+  assert(v != seat, "self-kill");
+  alive.insert(v, false);
+  killCount.increment(1);
+}
+
+// ----------------------------- 7.3.3 startMeeting ----------------------------
+export circuit startMeeting(): [] {
+  requireAdmin();
+  assert(gamePhase == 1, "meeting starts from LIVE");
+  gamePhase = 2;   // MEETING
+  for (const i of 0..5) {
+    voteTally.insert(i as Uint<8>, 0);
+  }
+}
+
+// ------------------------------ 7.3.4 recordVote -----------------------------
+// ZK: one vote per seat per meeting via salted nullifier; voter identity
+// appears neither in the nullifier set nor in the effects. target 255 = skip.
+export circuit recordVote(target: Uint<8>): [] {
+  const t = disclose(target);
+  const creds = voterCreds();
+  const role = creds[0];
+  const seat = creds[1];
+  const salt = creds[2];
+  assert(gamePhase == 2, "votes only in MEETING");
+  checkValidAliveSeatCommitment(role, seat, salt);
+  assert(t == 255 || (t < 5 && alive.lookup(t)),
+         "bad or dead vote target");
+  const nullifier = persistentHash<[Bytes<32>, Field, Bytes<32>]>(
+    [salt, meetingRound as Field, pad(32, "vote")]);
+  assert(!voteNullifiers.member(disclose(nullifier)), "double vote");
+  voteNullifiers.insert(disclose(nullifier));
+  if (t != 255) {
+    voteTally.insert(t,
+                     (voteTally.lookup(t) + 1) as Uint<8>);
+  }
+}
+
+// ---------------------------- 7.3.5 recordEjection ---------------------------
+// Admin, public reveal: the server is FORCED to tell the truth about the
+// ejected player's role — a wrong (role, salt) cannot open the commitment.
+export circuit recordEjection(seat: Uint<8>, role: Uint<8>, salt: Bytes<32>): [] {
+  requireAdmin();
+  const s = disclose(seat);
+  const r = disclose(role);
+  const slt = disclose(salt);
+  assert(gamePhase == 2, "ejection only from MEETING");
+  assert(s < 5, "bad seat");
+  assert(openCommitment(r, s, slt) == roleCommitments.lookup(s),
+         "ejection reveal does not open commitment");
+  assert(alive.lookup(s), "seat already dead");
+  alive.insert(s, false);
+  ejectedRole.insert(s, r);
+  meetingRound.increment(1);
+  gamePhase = 1;   // LIVE
+}
+
+// ------------------------- 7.3.6 endMeetingNoEjection ------------------------
+export circuit endMeetingNoEjection(): [] {
+  requireAdmin();
+  assert(gamePhase == 2, "no meeting to end");
+  meetingRound.increment(1);
+  gamePhase = 1;   // LIVE
+}
+
+// ---------------------------- 7.3.7 declareWinner ----------------------------
+// Task-completion wins are attested by the game server; the contract cannot
+// see tasks (documented boundary). It CAN enforce: saboteur ejected => agents.
+export circuit declareWinner(w: Uint<8>): [] {
+  requireAdmin();
+  const win = disclose(w);
+  assert(gamePhase != 3, "already OVER");
+  assert(win == 1 || win == 2, "winner must be 1 (agents) or 2 (saboteur)");
+  for (const i of 0..5) {
+    if (ejectedRole.member(i as Uint<8>)) {
+      if (ejectedRole.lookup(i as Uint<8>) == 2) {
+        assert(win == 1, "saboteur was ejected: agents must win");
+      }
+    }
+  }
+  winner = win;
+  gamePhase = 3;   // OVER
+}
+
+// ----------------------------- 7.3.8 auditReveal -----------------------------
+// Endgame: open every seat's day-one commitment so anyone can re-verify the
+// match forever. Only callable after OVER.
+export circuit auditReveal(seat: Uint<8>, role: Uint<8>, salt: Bytes<32>): [] {
+  requireAdmin();
+  const s = disclose(seat);
+  const r = disclose(role);
+  const slt = disclose(salt);
+  assert(gamePhase == 3, "audit only after OVER");
+  assert(s < 5, "bad seat");
+  assert(openCommitment(r, s, slt) == roleCommitments.lookup(s),
+         "audit reveal does not open commitment");
+  revealedRole.insert(s, r);
+}

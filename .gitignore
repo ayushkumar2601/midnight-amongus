@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Shadow Protocol / Midnight
+audit_log.json
+midnight-bridge/node_modules/
+midnight-bridge/dist/
+midnight-bridge/.env
+midnight-bridge/audit_log.json
+midnight-bridge/contract/src/managed/
