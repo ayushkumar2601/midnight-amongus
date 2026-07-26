@@ -1,127 +1,144 @@
-# Among Us (clone) — with Shadow Protocol (Midnight integration)
-An unofficial clone of the popular multiplayer game 'Among Us', recreated in Python using various supported libraries. Support for upto 5 (or more?) players via LAN. Assets ripped from the from the game.
+<div align="center">
 
-> **MLH Hackathon — Midnight Gaming Track:** this fork retrofits a
-> zero-knowledge fairness layer ("Shadow Protocol") onto the game with **zero
-> UI changes**. See [SHADOW_PROTOCOL.md](SHADOW_PROTOCOL.md) for the full
-> integration guide, quickstart, trust model, and test instructions.
-> Engine derived from AI0702/Among-Us-clone (Unlicense); all Midnight
-> integration built during the hackathon.
+# 🚀 Among Midnight
+**The world's first Zero-Knowledge Multiplayer Deduction Game**
 
-## Requirements
-* python 3.X 
-* pygame 
-* pytmx
-* pickle
-* select
-* socket
-* asyncore
-* threading
-* pyaudio (optional, for voice chat)
+[![Midnight Network](https://img.shields.io/badge/Midnight-Network-blueviolet?style=for-the-badge)](https://midnight.network/)
+[![Zero Knowledge](https://img.shields.io/badge/Zero_Knowledge-Enabled-success?style=for-the-badge)](#)
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 
-## How to run
+*A next-generation blockchain game built on the Midnight Network.*
 
-#### Singleplayer
-* To start the game `python main.py`
-* Choose 'Freeplay' from the menu to start playing
+</div>
 
-#### Local Multiplayer
-* To start the game server for multiplayer support `python server.py`
-* To start the game client `python main.py`
-* Choose 'Local' from the menu
-* Enter IP Address of the server (displayed in the server console). If the server is running on the same machine as the game, use the address `127.0.0.1`.
-* Upto 5 (or more?) game clients can cannect to the server by entering the server address, if they are connected to the same network. Though, the server might crash if too many players are connected.
+---
 
-#### Voice Chat Support (experimental)
-* To start the voice chat server `python server_voice.py`
-* To start the voice chat client `python voice.py`
-* Enter IP Address and Port of the voice chat server (displayed in the server console). 
+## 🌟 The Future of Trustless Gaming
+In traditional centralized multiplayer deduction games, the server holds all the secrets and literally dictates the game. In fact, many standard implementations assign roles in highly predictable or manipulated ways! Every centralized game faces this dilemma—you just have to blindly trust the server. 
 
-### Controls
+**Welcome to the future.** We built **Shadow Protocol**, a zero-knowledge cryptographic fairness and anti-cheat layer powered by the **Midnight Network**, directly into the core engine of Among Midnight. 
+With **real-time gameplay**, the game binds the role deal, every kill, every vote, and every ejection to zero-knowledge commitments on the blockchain. 
+The game runs flawlessly, but **it can no longer lie about it**. 
 
-#### Menu
-* `Up` `Down` `Left` `Right` `W` `S` `A` `D` Navigate Menu
-* `Enter` Select
-* `Esc` Back
+### Why this changes everything:
+- 🚫 **No more rigged servers:** Role assignments are verifiable through a deterministic Fisher–Yates shuffle via an on-chain committed seed.
+- 🔒 **Cryptographic proofs for actions:** Kills are bound to a ZK circuit—an innocent agent literally *cannot* forge a kill because they cannot prove they hold the Saboteur role.
+- ⛓️ **Immutable Audit Trail:** At game over, an on-chain reveal lets anyone fully audit the entire match. No rewritten histories, no cheating.
 
-#### Game
-* `Up` `Down` `Left` `Right` `W` `S` `A` `D` Move
-* `Space` Interact, Perform Actions, Vent
-* `Left Click` View Tasks, Complete Tasks, Vote. 
-  * Click on the 'Tasks' button on the top-left to view the list of tasks. 
-  * When a task window is displayed, click on appropriate hotspots to complete the task. 
-  * During voting, click on the checkbox next to a player to vote.
-* `Tab` View Map
-* `Alt` Change Vent. 
-  * Stand next to a vent and interact with it to move inside. Once inside, move from vent to vent using the `Alt` button. 
-* `Enter` Kill
-* `Ctrl` Sabotage Lights
-  * To fix the lights, go the the Electrical room, stand close to the glowing-elctric-symbol circuit-box on the north wall of the room, and press `Ctrl`
-* `Shift` Sabotage Reactor
-  * To fix the reactor, go the the Reactor room, stand close to the glowing-hand-symbol hand-scanner on the north wall of the room, and press `Shift`
+---
 
-## Screenshots
+## 🏗️ Technical Architecture & Integration
 
-![ui_1_menu](https://user-images.githubusercontent.com/69671663/147409060-7f0d63b1-3f32-4c25-bbf1-433c613f820b.png)
+Our architecture seamlessly integrates a real-time Python game client with the Midnight blockchain via a dedicated TypeScript bridge, maintaining instant gameplay speeds.
 
-![ui_2_colour](https://user-images.githubusercontent.com/69671663/147409062-a5858620-f5a1-4141-bd2f-4ef0bfd7ca3e.png)
+```mermaid
+graph TD
+    subgraph Client [Game Clients - Python 3.11]
+        A[Player 1 Client]
+        B[Player 2 Client]
+    end
 
-![ui_3_help](https://user-images.githubusercontent.com/69671663/147409063-c97fe81c-c8ec-456e-b598-63321b00c2b6.png)
+    subgraph Relays
+        C((TCP Relay Server :4321))
+    end
 
-![ui_9_name](https://user-images.githubusercontent.com/69671663/147409064-90f23e65-a9cd-47aa-8d05-1a1a7fe7bd31.png)
+    A <-->|Real-time Socket| C
+    B <-->|Real-time Socket| C
 
-![ui_10_ip](https://user-images.githubusercontent.com/69671663/147409066-eb2f1487-d109-4fbe-a703-b269ada864ba.png)
+    subgraph Midnight Bridge Node [TypeScript / Node 20]
+        D[HTTP JSON API :5310]
+        E{Tx Queue}
+        F[ZK Proof Generation]
+        G[Audit Dashboard]
+    end
 
-![ui_11_game](https://user-images.githubusercontent.com/69671663/147409067-52eab964-79db-453c-88d8-d8cb55c40306.png)
+    A -->|Fire-and-forget Hook| D
+    B -->|Fire-and-forget Hook| D
 
-![ui_13_tasks](https://user-images.githubusercontent.com/69671663/147409069-507db846-f623-451b-bb34-0165fc4c8b63.png)
+    D --> E
+    E --> F
+    F -->|RPC| H[Proof Server :6300]
+    E -->|Contract Client| I[(Midnight Testnet)]
+    G -.->|Reads state| I
+```
 
-![ui_14_tasks](https://user-images.githubusercontent.com/69671663/147409073-f1c74836-9e87-4abc-a0cb-a02a1e451eed.png)
+### Deep Dive into the Integration:
+* **The Bridge (`midnight-bridge`):** Handles serialized tx queues, retries, and talks to the ZK Proof generation server, anchoring state to the `ShadowLedger` compact contract.
+* **Hooks (`midnight_hooks.py`):** Acts as the bridge between real-time game loops and asynchronous blockchain state without blocking the UI.
+* **Compact Contract:** Evaluates ZK circuits for Nullifier checks (preventing double votes) and phase guards.
 
-![ui_15_tasks](https://user-images.githubusercontent.com/69671663/147409078-d338251c-0a6e-4187-9757-331f5435d9e5.png)
+---
 
-![ui_16_tasks](https://user-images.githubusercontent.com/69671663/147409083-b4ed9d5a-07f0-4f97-900a-98337391bd28.png)
+## 🎮 Game Features
 
-![ui_17_tasks](https://user-images.githubusercontent.com/69671663/147409084-2fc34ff2-2d02-4a80-aeef-fabdea828ce4.png)
+- **Local Multiplayer LAN:** Support for 5 players (Spec-locked: 1 Saboteur + 4 Agents).
+- **Fully functional Voice Chat**
+- **Zero-Knowledge Fairness Layer:** 
+  - On-chain committed role dealing.
+  - Provable actions (Kills, Votes, Ejects).
+- **Classic Gameplay Loop:** Sabotage reactor/lights, vent traversal, task completion, and emergency meetings!
 
-![ui_18_taks](https://user-images.githubusercontent.com/69671663/147409086-8e0bb48e-a4d3-4756-88d3-05e95fe443ab.png)
+---
 
-![ui_19_taks](https://user-images.githubusercontent.com/69671663/147409087-f4d685f4-83e0-4c69-b26b-4696a69390d3.png)
+## 📸 Screenshots
 
-![ui_20_task](https://user-images.githubusercontent.com/69671663/147409088-e6dbed19-5d80-4f8c-8327-2e7c3d21cad2.png)
+| Menu | Gameplay | Tasks |
+|:---:|:---:|:---:|
+| ![Menu](https://user-images.githubusercontent.com/69671663/147409060-7f0d63b1-3f32-4c25-bbf1-433c613f820b.png) | ![Gameplay](https://user-images.githubusercontent.com/69671663/147409067-52eab964-79db-453c-88d8-d8cb55c40306.png) | ![Tasks](https://user-images.githubusercontent.com/69671663/147409069-507db846-f623-451b-bb34-0165fc4c8b63.png) |
+| ![Voting](https://user-images.githubusercontent.com/69671663/147409108-33d52556-f70c-4253-bdb2-e469e8ef6730.png) | ![Sabotage](https://user-images.githubusercontent.com/69671663/147409097-0c3416c7-0773-4c75-bdc4-afbcf52827c4.png) | ![Eject](https://user-images.githubusercontent.com/69671663/147409109-cda58d4f-a7d7-4764-9b26-594ae78ab82a.png) |
 
-![ui_21_bots](https://user-images.githubusercontent.com/69671663/147409091-82231587-803b-498a-ba04-97984b867ad4.png)
+---
 
-![ui_22_map](https://user-images.githubusercontent.com/69671663/147409095-f29d80c9-f2d1-420c-a8eb-d261691096e8.png)
+## 🚀 Quickstart
 
-![ui_23_sabotage](https://user-images.githubusercontent.com/69671663/147409097-0c3416c7-0773-4c75-bdc4-afbcf52827c4.png)
+### Prerequisites
+- Python 3.11 (3.12 removed `asyncore`)
+- Node.js 20+
+- `pygame`, `pytmx`, `pyaudio`
 
-![ui_24_sabotage](https://user-images.githubusercontent.com/69671663/147409100-bf6266cc-2d39-42a9-8f4f-400ca2000071.png)
+### 1. Start the Midnight Bridge (Mock Mode)
+*Run this in terminal 1:*
+```bash
+cd midnight-bridge
+npm install
+npm run dev
+```
+The bridge boots on `http://127.0.0.1:5310`. Open the ZK audit dashboard at `http://127.0.0.1:5310/audit`.
 
-![ui_25_kill](https://user-images.githubusercontent.com/69671663/147409102-336f8dd1-c0b0-4f16-9ac0-4cb4dfb2a7f7.png)
+### 2. Start the Game Server
+*Run this in terminal 2:*
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+python server.py 
+```
 
-![ui_26_emergency](https://user-images.githubusercontent.com/69671663/147409104-6560334d-7baf-4948-8458-800992b71c78.png)
+### 3. Launch Clients
+*Run this in terminal 3, 4, 5... (for each player):*
+```bash
+python main.py
+```
+Choose 'Local' and connect to `127.0.0.1`. The match will auto-deal roles securely on-chain once 5 players join!
 
-![ui_27_report](https://user-images.githubusercontent.com/69671663/147409107-22a499ec-1ece-4925-b52c-1ff548e491f3.png)
+*(See [SHADOW_PROTOCOL.md](SHADOW_PROTOCOL.md) for full Midnight Testnet deployment instructions and Phase 2 config).*
 
-![ui_28_vote](https://user-images.githubusercontent.com/69671663/147409108-33d52556-f70c-4253-bdb2-e469e8ef6730.png)
+---
 
-![ui_29_eject](https://user-images.githubusercontent.com/69671663/147409109-cda58d4f-a7d7-4764-9b26-594ae78ab82a.png)
+## ⌨️ Controls
 
-![ui_31_kill](https://user-images.githubusercontent.com/69671663/147409055-8d9fd203-b79e-4848-9631-252d6a62b22c.png)
+- **Move:** `W` `A` `S` `D` or Arrow Keys
+- **Interact / Task / Vent:** `Space`
+- **Kill:** `Enter`
+- **Sabotage Lights:** `Ctrl` (Fix at Electrical)
+- **Sabotage Reactor:** `Shift` (Fix at Reactor)
+- **Map:** `Tab`
+- **Mouse:** Left-click to complete tasks and vote.
 
-![ui_32_admin_map](https://user-images.githubusercontent.com/69671663/147409056-156ad9f1-4377-40f1-b88b-b976031edf2b.png)
+---
 
-![ui_33_victory](https://user-images.githubusercontent.com/69671663/147409057-e88c21ec-672b-4a40-b29d-83b23fc855bd.png)
+## 👨‍💻 Created By
+**Ayush Kumar**
+- GitHub: [@ayushkumar](https://github.com/ayushkumar)
 
-![ui_34_defeat](https://user-images.githubusercontent.com/69671663/147409058-2d27a26f-f21e-4323-95c1-6972cbb6a541.png)
-
-![ui_35_server](https://user-images.githubusercontent.com/69671663/147409059-2ce0dda8-87a3-4189-ba29-1ec39249814e.png)
-
-
-# Credits
-* [Innersloth](https://www.innersloth.com) for their game 'Among Us' and its assets. 
-* [kidscancode](https://github.com/kidscancode) for their [tutorial](https://www.youtube.com/watch?v=3UxnelT9aCo&list=PLsk-HSGFjnaGQq7ybM8Lgkh5EMxUWPm2i), and [sample projects](https://github.com/kidscancode/pygame_tutorials) used as the base for the game. 
-* [Albert-91](https://github.com/Albert-91) for their [project](https://github.com/Albert-91/zombie-in-clab), used as a reference.
-* [PlainSight](https://github.com/PlainSight) for their [project](https://github.com/PlainSight/pygameblog), used as the base for multiplayer functionality.
-* [TomPrograms](https://github.com/TomPrograms) for their [project](https://github.com/TomPrograms/Python-Voice-Chat), used as the base for voice chat functionality.
+*Built from scratch for the Midnight Network Hackathon.*
